@@ -125,7 +125,38 @@ footer{padding:44px 0;text-align:center;color:var(--faint);font-size:12.5px;font
   .flow .step::after{display:none}
   .bar{grid-template-columns:120px 1fr 48px}
 }
+
+/* ---- UPLOAD / ANÁLISE ---- */
+.upl-wrap{margin-top:42px}
+.dropzone{border:2px dashed rgba(52,211,194,.4);border-radius:18px;padding:46px 30px;text-align:center;background:rgba(52,211,194,.04);transition:.2s;cursor:pointer}
+.dropzone.drag{background:rgba(52,211,194,.12);border-color:var(--teal)}
+.dropzone h3{font-family:var(--sans);font-weight:600;font-size:17px;margin-bottom:8px}
+.dropzone p{color:var(--mut);font-size:13.5px}
+.dropzone .ic{font-size:34px;color:var(--teal2);margin-bottom:10px}
+.dropzone .btn{display:inline-block;margin-top:16px;font-family:var(--mono);font-size:13px;color:var(--ink);background:var(--teal2);padding:11px 20px;border-radius:9px;font-weight:600}
+.ctrls{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:24px}
+.ctrls .c label{display:block;font-family:var(--mono);font-size:11px;color:var(--mut);margin-bottom:6px;letter-spacing:.03em}
+.ctrls .c input,.ctrls .c select{width:100%;background:var(--ink);border:1px solid rgba(255,255,255,.13);color:var(--txt);border-radius:9px;padding:10px 12px;font-family:var(--mono);font-size:13px}
+.ctrls .c input:focus,.ctrls .c select:focus{outline:none;border-color:var(--teal)}
+.analyzed{margin-top:30px;display:none}
+.analyzed.show{display:block;animation:fade .5s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}}
+.note-bad{background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ffb4b4;border-radius:10px;padding:12px 16px;font-size:13px;margin-top:18px;font-family:var(--mono)}
+.tablewrap{margin-top:26px;overflow-x:auto;border:1px solid rgba(255,255,255,.08);border-radius:14px}
+table.res{width:100%;border-collapse:collapse;font-size:12.5px;min-width:880px}
+table.res th{background:#0e1830;color:var(--mut);font-family:var(--mono);font-weight:500;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;padding:11px 12px;text-align:left;position:sticky;top:0}
+table.res td{padding:10px 12px;border-top:1px solid rgba(255,255,255,.05);font-family:var(--mono);white-space:nowrap}
+table.res td.name{font-family:var(--sans);white-space:normal;min-width:140px;color:var(--txt)}
+table.res tr:hover td{background:rgba(255,255,255,.02)}
+.st{display:inline-block;font-size:10.5px;padding:3px 8px;border-radius:5px;letter-spacing:.03em}
+.st.ok{background:rgba(126,217,87,.13);color:var(--green)}
+.st.cap{background:rgba(230,169,60,.15);color:var(--gold2)}
+.st.block{background:rgba(255,107,107,.15);color:var(--red)}
+.st.var{background:rgba(140,160,200,.13);color:#aab8d8}
+.tablefoot{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#0e1830;font-size:12px;color:var(--faint);font-family:var(--mono)}
+.dl-csv{font-family:var(--mono);font-size:12.5px;color:var(--teal2);text-decoration:none;border:1px solid rgba(52,211,194,.3);padding:8px 14px;border-radius:8px}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -278,6 +309,64 @@ footer{padding:44px 0;text-align:center;color:var(--faint);font-size:12.5px;font
   </div>
 </section>
 
+
+<!-- UPLOAD / ANÁLISE DA PLANILHA DO CLIENTE -->
+<section id="analisar">
+  <div class="wrap">
+    <div class="eyebrow">Analise sua planilha</div>
+    <h2>Suba seus dados e rode os dois modelos</h2>
+    <p class="sec-lede">Envie a tabela de preços (CSV ou Excel — inclusive o formato bruto da Jovedata). O app calcula valor antigo, valor novo e valor final com trava para cada linha, e mostra o impacto agregado. Nada é enviado a servidores: o processamento acontece 100% no navegador.</p>
+
+    <div class="upl-wrap">
+      <div class="dropzone" id="dz">
+        <div class="ic">⬆</div>
+        <h3>Arraste o arquivo aqui ou clique para selecionar</h3>
+        <p>Formatos aceitos: .csv (delimitado por ; ou ,) e .xlsx — codificação Latin-1 ou UTF-8</p>
+        <span class="btn">Selecionar arquivo</span>
+        <input type="file" id="file" accept=".csv,.xlsx,.xls,.tsv" style="display:none">
+      </div>
+
+      <div class="ctrls">
+        <div class="c"><label>Área capturada (cm²)</label><input id="uAc" type="number" value="250"></div>
+        <div class="c"><label>Fator Similarweb padrão</label><input id="uFs" type="number" step="0.01" value="1.00"></div>
+        <div class="c"><label>Preço interno legado</label>
+          <select id="uPi"><option value="jove">= Preço Jovedata</option><option value="col">Usar coluna do arquivo</option></select></div>
+        <div class="c"><label>Teto / Piso da trava</label>
+          <select id="uTr"><option value="2|0.5">2,0× / 0,5×</option><option value="3|0.33">3,0× / 0,33×</option><option value="1.5|0.66">1,5× / 0,66×</option><option value="999|0">Sem trava</option></select></div>
+      </div>
+
+      <div id="uErr"></div>
+
+      <div class="analyzed" id="out">
+        <div class="kpis">
+          <div class="kpi"><div class="num t" id="kCalc">—</div><div class="lbl">linhas calculáveis no modelo novo</div></div>
+          <div class="kpi"><div class="num r" id="kBlock">—</div><div class="lbl">bloqueadas (dimensão/audiência zerada)</div></div>
+          <div class="kpi"><div class="num g" id="kMed">—</div><div class="lbl">mediana Novo/Antigo</div></div>
+          <div class="kpi"><div class="num t" id="kVar">—</div><div class="lbl">variação total final vs antigo (com trava)</div></div>
+        </div>
+
+        <div class="dist" style="margin-top:30px">
+          <h3>Distribuição do impacto · razão Novo ÷ Antigo</h3>
+          <div class="sub" id="distSub">—</div>
+          <div class="bar"><div class="name">Cai mais de 50%</div><div class="track"><div class="fill" id="b1" style="background:linear-gradient(90deg,#ff6b6b,#ff9a6b)"></div></div><div class="val" id="v1">0</div></div>
+          <div class="bar"><div class="name">Cai 20–50%</div><div class="track"><div class="fill" id="b2" style="background:linear-gradient(90deg,#e6a93c,#f4c46a)"></div></div><div class="val" id="v2">0</div></div>
+          <div class="bar"><div class="name">Estável (±25%)</div><div class="track"><div class="fill" id="b3" style="background:linear-gradient(90deg,#34d3c2,#6fe9db)"></div></div><div class="val" id="v3">0</div></div>
+          <div class="bar"><div class="name">Sobe 25–100%</div><div class="track"><div class="fill" id="b4" style="background:linear-gradient(90deg,#e6a93c,#f4c46a)"></div></div><div class="val" id="v4">0</div></div>
+          <div class="bar"><div class="name">Dispara acima de 2×</div><div class="track"><div class="fill" id="b5" style="background:linear-gradient(90deg,#ff6b6b,#ff5b8a)"></div></div><div class="val" id="v5">0</div></div>
+        </div>
+
+        <div class="tablewrap">
+          <table class="res">
+            <thead><tr><th>Portal</th><th>Anúncio</th><th>Alt</th><th>Lar</th><th>Preço Jove</th><th>V. Antigo</th><th>V. Novo</th><th>Razão</th><th>Status</th><th>V. Final</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+          <div class="tablefoot"><span id="tfoot">—</span><a href="#" class="dl-csv" id="dlCsv">↓ Baixar resultado completo (CSV)</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- VEREDITO -->
 <section id="veredito" style="border:none">
   <div class="wrap">
@@ -292,7 +381,7 @@ footer{padding:44px 0;text-align:center;color:var(--faint);font-size:12.5px;font
         <li>Confirmar a constante 17,55 do modelo antigo e a densidade 1428,84 com a engenharia.</li>
         <li>Negociar com a Jovedata SLA de preenchimento de dimensão e cobertura de portais de nicho.</li>
       </ul>
-      <a class="dl" href="#" id="dlink">↓ Modelo de entrada de dados (Excel) acompanha este estudo</a>
+      <a class="dl" href="./Modelo_Valoracao_Anuncios.xlsx" download>↓ Baixar modelo de entrada de dados (Excel)</a>
     </div>
   </div>
 </section>
@@ -335,7 +424,215 @@ function calc(){
 }
 ['lar','alt','pj','pi','ac','fs'].forEach(id=>$(id).addEventListener('input',calc));
 calc();
-$('dlink').addEventListener('click',e=>{e.preventDefault();alert('O arquivo Modelo_Valoracao_Anuncios.xlsx foi entregue junto com este estudo.');});
+
+
+/* ===================== MOTOR DE ANÁLISE DA PLANILHA ===================== */
+(function(){
+  const $=id=>document.getElementById(id);
+  const norm=s=>(s||'').toString().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+  const COLS={
+    portal:['nomeportal','portal','veiculo','site'],
+    anuncio:['descanuncio','anuncio','formato','descricaoanuncio','peca'],
+    lar:['larfec','largura','largurapx','larpx','width','lar'],
+    alt:['altfec','altura','alturapx','altpx','height','alt'],
+    preco:['preco','precojovedata','valorjovedata','precobanner','precojove'],
+    areacap:['areacapturada','areacap','areacm2','areacapturadacm2'],
+    fator:['fatorsimilarweb','fatorsw','similarweb','fatoraudiencia'],
+    precoint:['precointerno','precointernosistema','precolegado','precoint']
+  };
+  function mapCols(headers){
+    const m={}; const H=headers.map(norm);
+    for(const key in COLS){
+      for(const cand of COLS[key]){
+        const i=H.indexOf(cand); if(i>=0){m[key]=i;break;}
+      }
+    }
+    return m;
+  }
+  function numBR(v){
+    if(v==null) return NaN;
+    if(typeof v==='number') return v;
+    let s=String(v).trim().replace(/\s/g,'');
+    if(s==='') return NaN;
+    // formato brasileiro: 3.201,20  -> remove pontos de milhar, vírgula vira ponto
+    if(s.indexOf(',')>=0){ s=s.replace(/\./g,'').replace(',','.'); }
+    return parseFloat(s);
+  }
+  // ---- leitura de arquivo ----
+  function parseCSVText(text){
+    // detecta delimitador
+    const head=text.split(/\r?\n/)[0]||'';
+    const delim=(head.split(';').length>head.split(',').length)?';':',';
+    const rows=[]; let row=[],cur='',q=false;
+    for(let i=0;i<text.length;i++){
+      const ch=text[i];
+      if(q){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+      else{
+        if(ch==='"') q=true;
+        else if(ch===delim){ row.push(cur);cur=''; }
+        else if(ch==='\n'){ row.push(cur);rows.push(row);row=[];cur=''; }
+        else if(ch==='\r'){}
+        else cur+=ch;
+      }
+    }
+    if(cur!==''||row.length){ row.push(cur);rows.push(row); }
+    return rows.filter(r=>r.length>1 || (r.length===1 && r[0].trim()!==''));
+  }
+  function readFile(file){
+    return new Promise((res,rej)=>{
+      const ext=file.name.toLowerCase().split('.').pop();
+      if(ext==='xlsx'||ext==='xls'){
+        const r=new FileReader();
+        r.onload=e=>{
+          try{
+            const wb=XLSX.read(e.target.result,{type:'array'});
+            const ws=wb.Sheets[wb.SheetNames[0]];
+            const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+            res(rows.filter(r=>r.length));
+          }catch(err){rej(err);}
+        };
+        r.onerror=rej; r.readAsArrayBuffer(file);
+      } else {
+        const r=new FileReader();
+        r.onload=e=>{
+          let txt=e.target.result;
+          // se vier com caracteres de substituição, tenta Latin-1
+          if(/\ufffd/.test(txt)){
+            const r2=new FileReader();
+            r2.onload=e2=>res(parseCSVText(e2.target.result));
+            r2.onerror=rej; r2.readAsText(file,'ISO-8859-1'); return;
+          }
+          res(parseCSVText(txt));
+        };
+        r.onerror=rej; r.readAsText(file,'UTF-8');
+      }
+    });
+  }
+
+  const K_NOVO=1428.84, K_ANT=17.55;
+  let lastResults=[];
+
+  function analyze(rows){
+    const err=$('uErr'); err.innerHTML='';
+    if(!rows||rows.length<2){ err.innerHTML='<div class="note-bad">Arquivo vazio ou sem linhas de dados.</div>'; return; }
+    const headers=rows[0].map(x=>String(x));
+    const m=mapCols(headers);
+    const miss=[];
+    if(m.lar==null) miss.push('largura (px)');
+    if(m.alt==null) miss.push('altura (px)');
+    if(m.preco==null) miss.push('preço');
+    if(miss.length){
+      err.innerHTML='<div class="note-bad">Não encontrei a(s) coluna(s): '+miss.join(', ')+
+        '. Cabeçalhos lidos: '+headers.slice(0,12).join(' · ')+'</div>';
+      return;
+    }
+    const Ac=parseFloat($('uAc').value)||0;
+    const Fdef=parseFloat($('uFs').value)||1;
+    const piMode=$('uPi').value;
+    const [CAP,FLOOR]=$('uTr').value.split('|').map(Number);
+
+    const out=[];
+    for(let i=1;i<rows.length;i++){
+      const r=rows[i]; if(!r||!r.length) continue;
+      const lar=numBR(r[m.lar]), alt=numBR(r[m.alt]), pj=numBR(r[m.preco]);
+      if(isNaN(pj)) continue;
+      let fs=(m.fator!=null)?numBR(r[m.fator]):NaN; if(isNaN(fs)||fs<=0) fs=Fdef;
+      let ac=(m.areacap!=null)?numBR(r[m.areacap]):NaN; if(isNaN(ac)||ac<=0) ac=Ac;
+      let pi=(piMode==='col'&&m.precoint!=null)?numBR(r[m.precoint]):pj; if(isNaN(pi)) pi=pj;
+      const portal=(m.portal!=null)?r[m.portal]:'—';
+      const anun=(m.anuncio!=null)?r[m.anuncio]:'—';
+      const old=(pi/K_ANT)*ac;
+      const areaB=(lar*alt)/K_NOVO;
+      let novo=null,ratio=null,status='',cls='',final;
+      if(!(areaB>0)){ status='DIM. ZERADA (trava)';cls='block';final=old; }
+      else{
+        novo=(pj/areaB)*ac*fs; ratio= old>0? novo/old : null;
+        if(ratio==null){ status='—';cls='var';final=novo; }
+        else if(ratio>CAP){ status='DISPARO ↑ (cap)';cls='cap';final=old*CAP; }
+        else if(ratio<FLOOR){ status='QUEDA ↓ (piso)';cls='cap';final=old*FLOOR; }
+        else if(ratio>=0.8&&ratio<=1.25){ status='ESTÁVEL';cls='ok';final=novo; }
+        else { status='VARIAÇÃO';cls='var';final=novo; }
+      }
+      out.push({portal,anun,alt,lar,pj,old,novo,ratio,status,cls,final});
+    }
+    if(!out.length){ err.innerHTML='<div class="note-bad">Nenhuma linha com preço válido encontrada.</div>'; return; }
+    lastResults=out;
+    render(out);
+  }
+
+  const brl=v=>v==null?'—':v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+  function median(a){ if(!a.length) return null; const s=[...a].sort((x,y)=>x-y);const h=Math.floor(s.length/2);
+    return s.length%2?s[h]:(s[h-1]+s[h])/2; }
+
+  function render(out){
+    const calc=out.filter(o=>o.ratio!=null);
+    const ratios=calc.map(o=>o.ratio);
+    const blocked=out.filter(o=>o.cls==='block').length;
+    const med=median(ratios);
+    const sumOld=out.reduce((s,o)=>s+(o.old||0),0);
+    const sumFin=out.reduce((s,o)=>s+(o.final||0),0);
+    $('kCalc').textContent=calc.length.toLocaleString('pt-BR');
+    $('kBlock').textContent=blocked.toLocaleString('pt-BR');
+    $('kMed').textContent=med!=null?med.toFixed(2)+'×':'—';
+    const varPct= sumOld>0? (sumFin/sumOld-1) : 0;
+    $('kVar').textContent=(varPct>=0?'+':'')+(varPct*100).toFixed(1)+'%';
+    $('distSub').textContent=out.length.toLocaleString('pt-BR')+' linhas · '+calc.length.toLocaleString('pt-BR')+' calculáveis';
+
+    const f=[0,0,0,0,0];
+    ratios.forEach(r=>{ if(r<0.5)f[0]++; else if(r<0.8)f[1]++; else if(r<=1.25)f[2]++; else if(r<=2)f[3]++; else f[4]++; });
+    const mx=Math.max(1,...f);
+    for(let i=0;i<5;i++){ $('b'+(i+1)).style.width=(f[i]/mx*100)+'%'; $('v'+(i+1)).textContent=f[i].toLocaleString('pt-BR'); }
+
+    const tb=$('tbody'); tb.innerHTML='';
+    out.slice(0,200).forEach(o=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td class="name">'+esc(o.portal)+'</td><td class="name">'+esc(o.anun)+'</td>'+
+        '<td>'+(o.alt||0)+'</td><td>'+(o.lar||0)+'</td><td>'+brl(o.pj)+'</td>'+
+        '<td>'+brl(o.old)+'</td><td>'+(o.novo==null?'<span class="st block">BLOQ.</span>':brl(o.novo))+'</td>'+
+        '<td>'+(o.ratio==null?'—':o.ratio.toFixed(2)+'×')+'</td>'+
+        '<td><span class="st '+o.cls+'">'+o.status+'</span></td><td>'+brl(o.final)+'</td>';
+      tb.appendChild(tr);
+    });
+    $('tfoot').textContent='Mostrando '+Math.min(200,out.length)+' de '+out.length.toLocaleString('pt-BR')+
+      ' linhas · Total antigo '+brl(sumOld)+' → final c/ trava '+brl(sumFin);
+    $('out').classList.add('show');
+    $('out').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+  function downloadCSV(){
+    if(!lastResults.length) return;
+    const head=['Portal','Anuncio','Alt_px','Lar_px','Preco_Jovedata','Valor_Antigo','Valor_Novo','Razao','Status','Valor_Final'];
+    const lines=[head.join(';')];
+    lastResults.forEach(o=>{
+      lines.push([o.portal,o.anun,o.alt||0,o.lar||0,fmt(o.pj),fmt(o.old),o.novo==null?'BLOQUEADO':fmt(o.novo),
+        o.ratio==null?'':o.ratio.toFixed(4),o.status,fmt(o.final)].map(csvCell).join(';'));
+    });
+    const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='resultado_valoracao.csv';a.click();
+  }
+  const fmt=v=>v==null?'':String(v.toFixed(2)).replace('.',',');
+  const csvCell=v=>{v=String(v); return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+
+  // ---- wiring ----
+  const dz=$('dz'),fi=$('file');
+  dz.addEventListener('click',()=>fi.click());
+  ['dragover','dragenter'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
+  dz.addEventListener('drop',e=>{ if(e.dataTransfer.files[0]) handle(e.dataTransfer.files[0]); });
+  fi.addEventListener('change',e=>{ if(e.target.files[0]) handle(e.target.files[0]); });
+  ['uAc','uFs','uPi','uTr'].forEach(id=>$(id).addEventListener('change',()=>{ if(rawRows) analyze(rawRows); }));
+  $('dlCsv').addEventListener('click',e=>{e.preventDefault();downloadCSV();});
+
+  let rawRows=null;
+  function handle(file){
+    $('uErr').innerHTML='<div class="note-bad" style="background:rgba(52,211,194,.08);border-color:rgba(52,211,194,.3);color:#9fe7dd">Lendo '+esc(file.name)+'…</div>';
+    readFile(file).then(rows=>{ rawRows=rows; analyze(rows); })
+      .catch(err=>{ $('uErr').innerHTML='<div class="note-bad">Falha ao ler o arquivo: '+esc(err.message||err)+'</div>'; });
+  }
+})();
+
 </script>
 </body>
 </html>
